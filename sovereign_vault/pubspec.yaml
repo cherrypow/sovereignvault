@@ -1,0 +1,26 @@
+name: sovereign_vault
+description: A local-only, offline-first credential and document vault.
+publish_to: 'none'
+version: 0.1.0-beta
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sovereign_core:
+    path: ../sovereign_core
+  file_picker: ^8.1.2
+  intl: ^0.19.0
+  uuid: ^4.4.2
+  url_launcher: ^6.3.1
+  connectivity_plus: ^6.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
