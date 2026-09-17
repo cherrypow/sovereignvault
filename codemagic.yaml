@@ -131,8 +131,8 @@ workflows:
           </dict>
           </plist>
           PLIST
-          echo "--- Identities actually in keychain ---"
-          security find-identity -v -p codesigning
+          echo "--- Identities actually in keychain (no policy filter, so Installer certs show up too) ---"
+          security find-identity -v
 
           xcodebuild -exportArchive \
             -archivePath build/macos/Runner.xcarchive \
@@ -140,7 +140,7 @@ workflows:
             -exportOptionsPlist exportOptions.plist \
           || {
             echo "=== exportArchive failed — dumping distribution logs for the real error ==="
-            LOGDIR=$(ls -td /var/folders/*/T/Runner_*.xcdistributionlogs 2>/dev/null | head -1)
+            LOGDIR=$(find /var/folders -maxdepth 4 -type d -name "Runner_*.xcdistributionlogs" 2>/dev/null | head -1)
             echo "Log dir: $LOGDIR"
             if [ -n "$LOGDIR" ]; then
               find "$LOGDIR" -type f \( -name "*.log" -o -name "*.txt" \) -print -exec cat {} \;
