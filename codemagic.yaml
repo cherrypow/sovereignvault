@@ -1,0 +1,42 @@
+workflows:
+  sovereign-vault-macos:
+    name: Sovereign Vault - macOS App Store
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: sovereign_vault
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        # Create this group in Codemagic (Teams > your team > Environment
+        # variables) holding your App Store Connect API key. Codemagic's
+        # App Store Connect integration screen can generate this group
+        # for you automatically when you connect your Apple account.
+        - app_store_credentials
+
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          # This also pulls in sovereign_core via the ../sovereign_core
+          # path dependency — Codemagic checks out the whole repo, so
+          # that sibling folder is present regardless of working_directory.
+          flutter pub get
+
+      - name: Set up automatic code signing
+        script: |
+          xcode-project use-profiles
+
+      - name: Build macOS app
+        script: |
+          flutter build macos --release
+
+    artifacts:
+      - sovereign_vault/build/macos/Build/Products/Release/*.app
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
