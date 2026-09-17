@@ -127,6 +127,26 @@ workflows:
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
           echo "Profile UUID: $PROFILE_UUID"
           echo "PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
+          echo "PROFILE_PATH=$PROFILE_PATH" >> $CM_ENV
+
+          # Certificate display names on this account have already changed
+          # once between runs (3rd Party Mac Developer Application ->
+          # Apple Distribution, when Apple consolidated cert types), so
+          # signing by name later is fragile. Capture each cert's SHA-1
+          # hash now and sign by hash instead, which is unambiguous
+          # regardless of what Apple decides to call it.
+          #
+          # -p codesigning matches exactly the App cert here (Installer
+          # certs never satisfy that policy, so this can't accidentally
+          # grab the wrong one).
+          APP_CERT_HASH=$(security find-identity -v -p codesigning | grep -Eo '[A-F0-9]{40}' | head -1)
+          echo "App cert hash: $APP_CERT_HASH"
+          echo "APP_CERT_HASH=$APP_CERT_HASH" >> $CM_ENV
+
+          INSTALLER_CERT_HASH=$(openssl x509 -in /tmp/installer_cert.pem -noout -fingerprint -sha1 | sed 's/.*=//' | tr -d ':')
+          echo "Installer cert hash: $INSTALLER_CERT_HASH"
+          echo "INSTALLER_CERT_HASH=$INSTALLER_CERT_HASH" >> $CM_ENV
+
           echo "Done setting up code signing"
 
       - name: Build macOS archive
@@ -158,45 +178,38 @@ workflows:
 
       - name: Export pkg
         script: |
-          cat > exportOptions.plist <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store-connect</string>
-            <key>teamID</key>
-            <string>799FH7B774</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.cherrypow.sovereignvault</key>
-              <string>$PROFILE_UUID</string>
-            </dict>
-            <key>signingCertificate</key>
-            <string>3rd Party Mac Developer Application</string>
-            <key>installerSigningCertificate</key>
-            <string>3rd Party Mac Developer Installer</string>
-          </dict>
-          </plist>
-          PLIST
-          echo "--- Identities actually in keychain (no policy filter, so Installer certs show up too) ---"
-          security find-identity -v
+          # xcodebuild -exportArchive was silently dropping the app-sandbox
+          # entitlement: the archive itself was built with
+          # CODE_SIGNING_ALLOWED=NO (deliberately, previous step), so
+          # there's no signed binary for export to inherit entitlements
+          # from. Its manual-signing re-sign step falls back to only
+          # whatever entitlements are baked into the chosen provisioning
+          # profile itself (app-identifier/team-identifier/keychain-
+          # access-groups) — never the project's Release.entitlements file
+          # — so app-sandbox never made it into the uploaded binary and
+          # Apple rejected it outright. Signing directly with `codesign
+          # --entitlements` and packaging with `productbuild` removes that
+          # ambiguity: this is the same two-step process -exportArchive
+          # does internally for the app-store-connect method, just made
+          # explicit so entitlements are under our control.
+          APP_PATH="build/macos/Runner.xcarchive/Products/Applications/sovereign_vault.app"
 
-          xcodebuild -exportArchive \
-            -archivePath build/macos/Runner.xcarchive \
-            -exportPath build/macos/pkg \
-            -exportOptionsPlist exportOptions.plist \
-          || {
-            echo "=== exportArchive failed — dumping distribution logs for the real error ==="
-            LOGDIR=$(find /var/folders -maxdepth 4 -type d -name "Runner_*.xcdistributionlogs" 2>/dev/null | head -1)
-            echo "Log dir: $LOGDIR"
-            if [ -n "$LOGDIR" ]; then
-              find "$LOGDIR" -type f \( -name "*.log" -o -name "*.txt" \) -print -exec cat {} \;
-            fi
-            exit 1
-          }
+          echo "Embedding profile: $PROFILE_PATH"
+          cp "$PROFILE_PATH" "$APP_PATH/Contents/embedded.provisionprofile"
+
+          codesign --force --deep --timestamp \
+            --sign "$APP_CERT_HASH" \
+            --entitlements Runner/Release.entitlements \
+            "$APP_PATH"
+
+          echo "--- Verifying signature and entitlements ---"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign -d --entitlements :- "$APP_PATH"
+
+          mkdir -p build/macos/pkg
+          productbuild --component "$APP_PATH" /Applications \
+            --sign "$INSTALLER_CERT_HASH" \
+            build/macos/pkg/sovereign_vault.pkg
 
       - name: Upload to App Store Connect
         script: |
