@@ -42,19 +42,52 @@ workflows:
             done
           done
 
-          app-store-connect certificates create \
-            --type MAC_APP_DISTRIBUTION \
-            --certificate-key "$(cat /tmp/app_cert_key.pem)"
-
-          app-store-connect certificates create \
-            --type MAC_INSTALLER_DISTRIBUTION \
-            --certificate-key "$(cat /tmp/installer_cert_key.pem)" \
-            --save
-
+          # fetch-signing-files creates the MAC_APP_DISTRIBUTION cert itself
+          # (matching this key) as part of resolving the MAC_APP_STORE
+          # profile, and reliably lands it in the keychain via
+          # `keychain add-certificates` below — confirmed working by an
+          # earlier build's export log.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type MAC_APP_STORE \
             --create \
             --certificate-key "$(cat /tmp/app_cert_key.pem)"
+
+          # The Installer cert has no fetch-signing-files equivalent, and
+          # routing it through `certificates create --save` +
+          # `keychain add-certificates` produced no usable identity last
+          # run: the exported archive's provisioning profile listed the
+          # Installer cert's hash as required, but only the App cert
+          # resolved as an actual signing identity at export time. So its
+          # .p12 is built here by hand instead of trusting --save's
+          # internal mechanics. `-legacy` matters: modern OpenSSL defaults
+          # to AES-256 for the p12 bag, which macOS's Security framework
+          # doesn't reliably import as a usable identity — Apple's importer
+          # expects the older RC2/3DES-based encoding.
+          app-store-connect certificates create \
+            --type MAC_INSTALLER_DISTRIBUTION \
+            --certificate-key "$(cat /tmp/installer_cert_key.pem)" \
+            --json > /tmp/installer_cert.json
+
+          python3 -c "
+import json, base64
+d = json.load(open('/tmp/installer_cert.json'))
+d = d[0] if isinstance(d, list) else d
+attrs = d.get('attributes', d)
+open('/tmp/installer_cert.cer', 'wb').write(base64.b64decode(attrs['certificateContent']))
+"
+          openssl x509 -inform DER -in /tmp/installer_cert.cer -out /tmp/installer_cert.pem
+
+          mkdir -p ~/Library/MobileDevice/Certificates
+          openssl pkcs12 -export -legacy \
+            -inkey /tmp/installer_cert_key.pem \
+            -in /tmp/installer_cert.pem \
+            -out ~/Library/MobileDevice/Certificates/installer_distribution.p12 \
+            -passout pass: 2>/dev/null || \
+          openssl pkcs12 -export \
+            -inkey /tmp/installer_cert_key.pem \
+            -in /tmp/installer_cert.pem \
+            -out ~/Library/MobileDevice/Certificates/installer_distribution.p12 \
+            -passout pass:
 
           keychain add-certificates
 
