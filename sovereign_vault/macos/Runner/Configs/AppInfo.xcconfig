@@ -8,7 +8,7 @@
 PRODUCT_NAME = sovereign_vault
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.sovereignvault.sovereignVault
+PRODUCT_BUNDLE_IDENTIFIER = com.cherrypow.sovereignvault
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.sovereignvault. All rights reserved.
