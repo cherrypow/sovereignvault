@@ -197,9 +197,23 @@ workflows:
           echo "Embedding profile: $PROFILE_PATH"
           cp "$PROFILE_PATH" "$APP_PATH/Contents/embedded.provisionprofile"
 
+          # A raw `codesign --entitlements <file>` REPLACES the entitlements
+          # entirely — it doesn't merge like Xcode's own automatic signing
+          # does. Signing with just our 2-key Release.entitlements dropped
+          # application-identifier/team-identifier, which the profile
+          # requires be present in the signed binary too (confirmed by
+          # Apple's "missing an application identifier" warning last run).
+          # Extract the profile's own entitlements dict and merge our
+          # project's entitlements into it instead of replacing it.
+          security cms -D -i "$PROFILE_PATH" > /tmp/profile.plist
+          /usr/libexec/PlistBuddy -x -c "Print :Entitlements" /tmp/profile.plist > /tmp/entitlements.plist
+          python3 -c "import plistlib; profile_ents = plistlib.load(open('/tmp/entitlements.plist', 'rb')); project_ents = plistlib.load(open('macos/Runner/Release.entitlements', 'rb')); profile_ents.update(project_ents); plistlib.dump(profile_ents, open('/tmp/entitlements.plist', 'wb'))"
+          echo "--- Merged entitlements to be signed in ---"
+          cat /tmp/entitlements.plist
+
           codesign --force --deep --timestamp \
             --sign "$APP_CERT_HASH" \
-            --entitlements Runner/Release.entitlements \
+            --entitlements /tmp/entitlements.plist \
             "$APP_PATH"
 
           echo "--- Verifying signature and entitlements ---"
