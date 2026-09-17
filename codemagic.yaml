@@ -34,7 +34,13 @@ workflows:
           openssl genrsa -out /tmp/app_cert_key.pem 2048
           openssl genrsa -out /tmp/installer_cert_key.pem 2048
 
-          for cert_type in MAC_APP_DISTRIBUTION MAC_INSTALLER_DISTRIBUTION; do
+          # DISTRIBUTION is the newer universal Apple Distribution cert
+          # type Apple now issues in place of MAC_APP_DISTRIBUTION on this
+          # account (confirmed by the "certificate type: DISTRIBUTION" log
+          # line each run) — it has to be cleaned up here too, or it's
+          # never deleted and every run leaves one behind until Apple's
+          # per-account cert quota is hit and every future create 409s.
+          for cert_type in MAC_APP_DISTRIBUTION MAC_INSTALLER_DISTRIBUTION DISTRIBUTION; do
             app-store-connect certificates list --type "$cert_type" --json > /tmp/certs.json 2>/dev/null || true
             for cert_id in $(python3 -c "import json; [print(c['id']) for c in json.load(open('/tmp/certs.json'))]" 2>/dev/null); do
               echo "Deleting existing $cert_type certificate $cert_id"
