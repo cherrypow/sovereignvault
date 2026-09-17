@@ -68,13 +68,7 @@ workflows:
             --certificate-key "$(cat /tmp/installer_cert_key.pem)" \
             --json > /tmp/installer_cert.json
 
-          python3 -c "
-import json, base64
-d = json.load(open('/tmp/installer_cert.json'))
-d = d[0] if isinstance(d, list) else d
-attrs = d.get('attributes', d)
-open('/tmp/installer_cert.cer', 'wb').write(base64.b64decode(attrs['certificateContent']))
-"
+          python3 -c "import json, base64; d = json.load(open('/tmp/installer_cert.json')); d = d[0] if isinstance(d, list) else d; attrs = d.get('attributes', d); open('/tmp/installer_cert.cer', 'wb').write(base64.b64decode(attrs['certificateContent']))"
           openssl x509 -inform DER -in /tmp/installer_cert.cer -out /tmp/installer_cert.pem
 
           mkdir -p ~/Library/MobileDevice/Certificates
