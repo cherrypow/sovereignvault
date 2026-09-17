@@ -48,7 +48,8 @@ workflows:
 
           app-store-connect certificates create \
             --type MAC_INSTALLER_DISTRIBUTION \
-            --certificate-key "$(cat /tmp/installer_cert_key.pem)"
+            --certificate-key "$(cat /tmp/installer_cert_key.pem)" \
+            --save
 
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type MAC_APP_STORE \
@@ -57,14 +58,21 @@ workflows:
 
           keychain add-certificates
 
-          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile 2>/dev/null | head -1)
+          # fetch-signing-files saves macOS profiles under Xcode's UserData
+          # path, not the legacy ~/Library/MobileDevice path iOS profiles
+          # used in the thailang script — check both, newest first.
+          PROFILE_PATH=$(ls -t ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.provisionprofile 2>/dev/null | head -1)
           if [ -z "$PROFILE_PATH" ]; then
-            PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
+            PROFILE_PATH=$(ls -t ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile 2>/dev/null | head -1)
+          fi
+          if [ -z "$PROFILE_PATH" ]; then
+            PROFILE_PATH=$(ls -t ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
           fi
           if [ -z "$PROFILE_PATH" ]; then
             echo "ERROR: No provisioning profile found!"
             exit 1
           fi
+          echo "Using profile: $PROFILE_PATH"
 
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
           echo "Profile UUID: $PROFILE_UUID"
