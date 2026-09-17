@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Distributed directly from the website (notarized), not through
+	     the Mac App Store -- App Sandbox is an App Store requirement,
+	     not a general macOS one, so it's deliberately left off here.
+	     Hardened Runtime (a build setting, not an entitlement) is what
+	     notarization actually requires. -->
+</dict>
+</plist>

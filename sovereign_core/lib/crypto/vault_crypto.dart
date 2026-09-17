@@ -25,6 +25,34 @@ class VaultCrypto {
     hashLength: 32,
   );
 
+  // A deliberately harder profile for sealed exports (see
+  // SealedExportService). The daily-unlock profile above is tuned to
+  // stay fast on every unlock; an exported file has no server to
+  // rate-limit guesses and may sit in an inbox for years, so it can
+  // and should cost an attacker far more per guess. A few seconds on
+  // export/import is an acceptable trade for a rare, deliberate action.
+  //
+  // Raised again (from 64 MiB/4 iterations) once sealed exports could
+  // be protected by a 6-digit PIN instead of a 6-word passphrase —
+  // ~20 bits of entropy instead of ~48. This raises the cost of each
+  // guess substantially, but no amount of KDF hardening turns a
+  // 1-in-a-million secret into a strong one on its own; it only raises
+  // the bar for an opportunistic attacker, not a well-resourced one.
+  //
+  // Kept as plain constants (not read back off the Argon2id instance
+  // below) so a sealed file can record exactly which parameters
+  // encrypted it, independent of whatever this class's defaults are
+  // when the file is later opened.
+  static const argon2idExportMemory = 131072; // 128 MiB
+  static const argon2idExportIterations = 5;
+  static const argon2idExportParallelism = 1;
+  static final Argon2id argon2idExport = Argon2id(
+    memory: argon2idExportMemory,
+    iterations: argon2idExportIterations,
+    parallelism: argon2idExportParallelism,
+    hashLength: 32,
+  );
+
   static final _secureRandom = Random.secure();
 
   static Uint8List randomBytes(int length) {
@@ -39,12 +67,14 @@ class VaultCrypto {
   static Uint8List generateVmk() => randomBytes(32);
 
   /// Derives a 256-bit key from a human secret (PIN or master password)
-  /// and a salt, using Argon2id.
+  /// and a salt, using Argon2id. Pass [kdf] to use a different cost
+  /// profile than the daily-unlock default (see [argon2idExport]).
   static Future<SecretKey> deriveKey({
     required String secret,
     required List<int> salt,
+    Argon2id? kdf,
   }) {
-    return argon2id.deriveKeyFromPassword(password: secret, nonce: salt);
+    return (kdf ?? argon2id).deriveKeyFromPassword(password: secret, nonce: salt);
   }
 
   /// Combines two independent secrets (e.g. a PIN-derived key and a

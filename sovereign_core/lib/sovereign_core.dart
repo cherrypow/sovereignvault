@@ -2,6 +2,8 @@ library sovereign_core;
 
 export 'crypto/key_manager.dart';
 export 'crypto/lockout_policy.dart';
+export 'crypto/passphrase_generator.dart';
+export 'crypto/sealed_export.dart';
 export 'crypto/secure_store.dart';
 export 'crypto/vault_crypto.dart';
 

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:sovereign_core/sovereign_core.dart';
 import 'package:uuid/uuid.dart';
 
+import 'import_sealed_screen.dart';
 import 'unlock_screen.dart';
 import 'vault_detail_screen.dart';
 
@@ -96,6 +97,13 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       await VaultSession.instance.repository!.save();
     }
+  }
+
+  Future<void> _importSealedFile() async {
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const ImportSealedScreen()),
+    );
+    if (imported == true) setState(() {});
   }
 
   Future<void> _uploadDocument() async {
@@ -338,6 +346,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.borderAt(0.16)))),
                             child: Text('+   ADD A NEW VAULT',
                                 style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10.5, letterSpacing: 1, color: AppColors.mutedAt(1))),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: _importSealedFile,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.borderAt(0.16)))),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.lock_outline, size: 12, color: AppColors.mutedAt(1)),
+                                const SizedBox(width: 8),
+                                Text('IMPORT SEALED FILE',
+                                    style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10.5, letterSpacing: 1, color: AppColors.mutedAt(1))),
+                              ],
+                            ),
                           ),
                         ),
                       ],

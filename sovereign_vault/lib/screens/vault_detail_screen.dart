@@ -10,6 +10,8 @@ import 'package:intl/intl.dart';
 import 'package:sovereign_core/sovereign_core.dart';
 import 'package:uuid/uuid.dart';
 
+import 'export_sealed_screen.dart';
+
 class VaultDetailScreen extends StatefulWidget {
   final Vault vault;
   const VaultDetailScreen({super.key, required this.vault});
@@ -426,6 +428,23 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
                         ],
                       ),
                     ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ExportSealedScreen(vault: widget.vault)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4, right: 20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock_outline, size: 14, color: AppColors.card),
+                        const SizedBox(width: 6),
+                        Text('SEND SEALED FILE',
+                            style: TextStyle(fontFamily: AppFonts.mono, fontSize: 9.5, letterSpacing: 1, color: AppColors.card)),
+                      ],
+                    ),
                   ),
                 ),
                 InkWell(
