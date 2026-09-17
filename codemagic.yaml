@@ -1,29 +1,18 @@
 workflows:
-  sovereign-vault-macos:
+  macos-release:
     name: Sovereign Vault - macOS App Store
     max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: sovereign_vault
 
-    integrations:
-      # This name must exactly match an App Store Connect integration you
-      # create in Codemagic under Team settings > Integrations > App Store
-      # Connect (upload your App Store Connect API key there and name the
-      # integration "sovereign_vault_asc"). This single integration covers
-      # both automatic code signing below and the publishing step at the
-      # bottom of this file.
-      app_store_connect: sovereign_vault_asc
-
     environment:
+      groups:
+        - "SovVaultApp"
+      vars:
+        BUNDLE_ID: "com.cherrypow.sovereignvault"
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        # The environment variable group created in Codemagic under
-        # Environment variables, holding whatever custom variables this
-        # build needs. Separate from the app_store_connect integration
-        # above, which handles signing/publishing on its own.
-        - SovVaultApp
 
     scripts:
       - name: Get Flutter packages
@@ -33,24 +22,105 @@ workflows:
           # that sibling folder is present regardless of working_directory.
           flutter pub get
 
-      - name: Set up automatic code signing
+      - name: Set up code signing
         script: |
-          xcode-project use-profiles
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode)"
 
-      - name: Build macOS app
+          keychain initialize
+
+          # macOS App Store distribution needs two certificates, unlike
+          # iOS's one: an Application cert to sign the .app, and an
+          # Installer cert to sign the .pkg that wraps it for submission.
+          openssl genrsa -out /tmp/app_cert_key.pem 2048
+          openssl genrsa -out /tmp/installer_cert_key.pem 2048
+
+          for cert_type in MAC_APP_DISTRIBUTION MAC_INSTALLER_DISTRIBUTION; do
+            app-store-connect certificates list --type "$cert_type" --json > /tmp/certs.json 2>/dev/null || true
+            for cert_id in $(python3 -c "import json; [print(c['id']) for c in json.load(open('/tmp/certs.json'))]" 2>/dev/null); do
+              echo "Deleting existing $cert_type certificate $cert_id"
+              app-store-connect certificates delete "$cert_id" 2>&1 || true
+            done
+          done
+
+          app-store-connect certificates create \
+            --type MAC_APP_DISTRIBUTION \
+            --certificate-key "$(cat /tmp/app_cert_key.pem)"
+
+          app-store-connect certificates create \
+            --type MAC_INSTALLER_DISTRIBUTION \
+            --certificate-key "$(cat /tmp/installer_cert_key.pem)"
+
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type MAC_APP_STORE \
+            --create \
+            --certificate-key "$(cat /tmp/app_cert_key.pem)"
+
+          keychain add-certificates
+
+          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile 2>/dev/null | head -1)
+          if [ -z "$PROFILE_PATH" ]; then
+            PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 2>/dev/null | head -1)
+          fi
+          if [ -z "$PROFILE_PATH" ]; then
+            echo "ERROR: No provisioning profile found!"
+            exit 1
+          fi
+
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
+          echo "Profile UUID: $PROFILE_UUID"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
+
+          PBXPROJ="macos/Runner.xcodeproj/project.pbxproj"
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' "$PBXPROJ"
+          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PBXPROJ"
+          echo "Done setting up code signing"
+
+      - name: Build macOS archive
         script: |
-          # Version comes from MARKETING_VERSION/CURRENT_PROJECT_VERSION
-          # in macos/Runner/Configs/AppInfo.xcconfig, not from Flutter's
-          # --build-name — that flag also enforces 3-part semver and
-          # silently coerces "1.0" to "1.0.0", which doesn't match App
-          # Store Connect's version record here.
-          flutter build macos --release
+          xcodebuild -workspace macos/Runner.xcworkspace \
+            -scheme Runner \
+            -archivePath build/macos/Runner.xcarchive \
+            -destination 'generic/platform=macOS' \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="799FH7B774" \
+            "CODE_SIGN_IDENTITY=3rd Party Mac Developer Application" \
+            "PROVISIONING_PROFILE=$PROFILE_UUID"
+
+      - name: Export pkg
+        script: |
+          cat > exportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>teamID</key>
+            <string>799FH7B774</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.cherrypow.sovereignvault</key>
+              <string>$PROFILE_UUID</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/macos/Runner.xcarchive \
+            -exportPath build/macos/pkg \
+            -exportOptionsPlist exportOptions.plist
+
+      - name: Upload to App Store Connect
+        script: |
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode)"
+          app-store-connect publish \
+            --path build/macos/pkg/*.pkg
+          echo "Upload complete"
 
     artifacts:
-      - sovereign_vault/build/macos/Build/Products/Release/*.app
-
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: false
-        submit_to_app_store: false
+      - build/macos/pkg/*.pkg
+      - build/macos/Runner.xcarchive
+      - /tmp/xcodebuild_logs/*.log
