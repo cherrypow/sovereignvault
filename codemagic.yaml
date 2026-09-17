@@ -59,10 +59,15 @@ workflows:
           # Installer cert's hash as required, but only the App cert
           # resolved as an actual signing identity at export time. So its
           # .p12 is built here by hand instead of trusting --save's
-          # internal mechanics. `-legacy` matters: modern OpenSSL defaults
-          # to AES-256 for the p12 bag, which macOS's Security framework
-          # doesn't reliably import as a usable identity — Apple's importer
-          # expects the older RC2/3DES-based encoding.
+          # internal mechanics, and imported directly with `security
+          # import` instead of going through `keychain add-certificates`'s
+          # auto-discovery, which is what actually broke last run: it was
+          # given an empty p12 password to match keychain add-certificates'
+          # documented default, but OpenSSL's empty-password PKCS12 MAC and
+          # macOS's expectation of "empty" didn't agree — import failed
+          # with "MAC verification failed during PKCS12 import". Using an
+          # explicit password on both ends of a single `security import`
+          # call removes that ambiguity entirely.
           app-store-connect certificates create \
             --type MAC_INSTALLER_DISTRIBUTION \
             --certificate-key "$(cat /tmp/installer_cert_key.pem)" \
@@ -71,18 +76,30 @@ workflows:
           python3 -c "import json, base64; d = json.load(open('/tmp/installer_cert.json')); d = d[0] if isinstance(d, list) else d; attrs = d.get('attributes', d); open('/tmp/installer_cert.cer', 'wb').write(base64.b64decode(attrs['certificateContent']))"
           openssl x509 -inform DER -in /tmp/installer_cert.cer -out /tmp/installer_cert.pem
 
-          mkdir -p ~/Library/MobileDevice/Certificates
+          INSTALLER_P12_PASSWORD="sovvault-ci-$RANDOM"
           openssl pkcs12 -export -legacy \
             -inkey /tmp/installer_cert_key.pem \
             -in /tmp/installer_cert.pem \
-            -out ~/Library/MobileDevice/Certificates/installer_distribution.p12 \
-            -passout pass: 2>/dev/null || \
+            -out /tmp/installer_distribution.p12 \
+            -passout pass:"$INSTALLER_P12_PASSWORD" 2>/dev/null || \
           openssl pkcs12 -export \
             -inkey /tmp/installer_cert_key.pem \
             -in /tmp/installer_cert.pem \
-            -out ~/Library/MobileDevice/Certificates/installer_distribution.p12 \
-            -passout pass:
+            -out /tmp/installer_distribution.p12 \
+            -passout pass:"$INSTALLER_P12_PASSWORD"
 
+          BUILD_KEYCHAIN=$(security default-keychain -d user | tr -d ' "')
+          echo "Importing Installer cert directly into $BUILD_KEYCHAIN"
+          security import /tmp/installer_distribution.p12 \
+            -k "$BUILD_KEYCHAIN" \
+            -P "$INSTALLER_P12_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild \
+            -T /usr/bin/productsign \
+            -T /usr/bin/security
+
+          # Handles the App cert only now -- the Installer cert was just
+          # imported directly above.
           keychain add-certificates
 
           # fetch-signing-files saves macOS profiles under Xcode's UserData
