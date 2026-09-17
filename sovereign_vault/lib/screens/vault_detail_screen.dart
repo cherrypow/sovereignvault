@@ -29,6 +29,23 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
   final _newValueController = TextEditingController();
   late final TextEditingController _notesController;
 
+  final _entrySearchController = TextEditingController();
+  final _documentSearchController = TextEditingController();
+  String _entryQuery = '';
+  String _documentQuery = '';
+
+  List<VaultEntry> get _filteredEntries {
+    if (_entryQuery.isEmpty) return widget.vault.entries;
+    final q = _entryQuery.toLowerCase();
+    return widget.vault.entries.where((e) => e.name.toLowerCase().contains(q)).toList();
+  }
+
+  List<DocumentEntry> get _filteredDocuments {
+    if (_documentQuery.isEmpty) return widget.vault.documents;
+    final q = _documentQuery.toLowerCase();
+    return widget.vault.documents.where((d) => d.originalName.toLowerCase().contains(q)).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -355,13 +372,15 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
     _newNameController.dispose();
     _newValueController.dispose();
     _notesController.dispose();
+    _entrySearchController.dispose();
+    _documentSearchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final entries = widget.vault.entries;
-    final documents = widget.vault.documents;
+    final entries = _filteredEntries;
+    final documents = _filteredDocuments;
     return Scaffold(
       body: Column(
         children: [
@@ -441,11 +460,31 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
                       children: [
                         Text('ENTRIES — ${entries.length}',
                             style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, letterSpacing: 2, color: AppColors.mutedAt(1))),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _entrySearchController,
+                          onChanged: (v) => setState(() => _entryQuery = v),
+                          style: const TextStyle(color: AppColors.text, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search entries…',
+                            hintStyle: TextStyle(color: AppColors.mutedAt(0.7)),
+                            prefixIcon: Icon(Icons.search, size: 16, color: AppColors.mutedAt(1)),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.16))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.16))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.5))),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
                         const SizedBox(height: 14),
                         if (_isAddingEntry) _newEntryRow(),
                         Expanded(
                           child: entries.isEmpty && !_isAddingEntry
-                              ? Center(child: Text('No entries yet.', style: TextStyle(fontFamily: AppFonts.mono, color: AppColors.mutedAt(1))))
+                              ? Center(
+                                  child: Text(
+                                      _entryQuery.isEmpty ? 'No entries yet.' : 'No entries match "$_entryQuery".',
+                                      style: TextStyle(fontFamily: AppFonts.mono, color: AppColors.mutedAt(1))))
                               : ListView.builder(
                                   itemCount: entries.length,
                                   itemBuilder: (context, index) => _row(entries[index], isLast: index == entries.length - 1 && !_isAddingEntry),
@@ -500,17 +539,37 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
                                 style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, letterSpacing: 2, color: AppColors.mutedAt(1))),
                             const Spacer(),
                             Text(
-                              _formatSize(documents.fold<int>(0, (sum, d) => sum + d.sizeBytes)).toUpperCase(),
+                              _formatSize(widget.vault.documents.fold<int>(0, (sum, d) => sum + d.sizeBytes)).toUpperCase(),
                               style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1, color: AppColors.card),
                             ),
                             const SizedBox(width: 5),
                             Text('USED', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 9, letterSpacing: 1, color: AppColors.mutedAt(0.9))),
                           ],
                         ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _documentSearchController,
+                          onChanged: (v) => setState(() => _documentQuery = v),
+                          style: const TextStyle(color: AppColors.text, fontSize: 13),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search documents…',
+                            hintStyle: TextStyle(color: AppColors.mutedAt(0.7)),
+                            prefixIcon: Icon(Icons.search, size: 16, color: AppColors.mutedAt(1)),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 0),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.16))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.16))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(color: AppColors.borderAt(0.5))),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
                         const SizedBox(height: 14),
                         Expanded(
                           child: documents.isEmpty
-                              ? Center(child: Text('No documents in this vault.', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.mutedAt(1))))
+                              ? Center(
+                                  child: Text(
+                                      _documentQuery.isEmpty ? 'No documents in this vault.' : 'No documents match "$_documentQuery".',
+                                      style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.mutedAt(1))))
                               : Builder(builder: (context) {
                                   final grouped = _sectioned(documents);
                                   return ListView(
