@@ -91,6 +91,14 @@ workflows:
           # breaks the archive. Real distribution signing happens at
           # export time instead (next step), which only touches the
           # already-built Runner.app, not these sub-targets.
+          #
+          # --config-only runs Flutter's own project-prep work (Generated
+          # Xcode config, the FlutterInputs/FlutterOutputs.xcfilelist files
+          # the "Flutter Assemble" build phase reads, pod/SPM resolution)
+          # without doing a full build — required before a bare xcodebuild
+          # archive call, which skips that prep entirely on its own.
+          flutter build macos --config-only
+
           xcodebuild -workspace macos/Runner.xcworkspace \
             -scheme Runner \
             -archivePath build/macos/Runner.xcarchive \
