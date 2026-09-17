@@ -197,6 +197,16 @@ workflows:
           echo "Embedding profile: $PROFILE_PATH"
           cp "$PROFILE_PATH" "$APP_PATH/Contents/embedded.provisionprofile"
 
+          # fetch-signing-files writes profiles with restrictive
+          # owner-only permissions, which `cp` carries straight into the
+          # bundle. productbuild then packages that file as-is, and Apple
+          # rejects packages containing files a normal user can't read
+          # ("only readable by the root user") since the app can't
+          # validate its own signature at runtime otherwise. Must happen
+          # before signing so the permissions are part of what gets
+          # signed, not patched on after.
+          chmod -R a+rX "$APP_PATH"
+
           # A raw `codesign --entitlements <file>` REPLACES the entitlements
           # entirely — it doesn't merge like Xcode's own automatic signing
           # does. Signing with just our 2-key Release.entitlements dropped
