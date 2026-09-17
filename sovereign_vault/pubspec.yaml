@@ -1,6 +1,11 @@
 name: sovereign_vault
 description: A local-only, offline-first credential and document vault.
 publish_to: 'none'
+# Dart's own package version must be full 3-part semver ("1.0" alone is
+# invalid here) — App Store Connect's version record was created as "1.0"
+# (two-part) and can't be edited, so codemagic.yaml overrides the actual
+# native build's version via `flutter build --build-name=1.0` instead of
+# relying on this field for that.
 version: 1.0.0+1
 
 environment:
