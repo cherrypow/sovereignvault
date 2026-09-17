@@ -320,9 +320,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                       _query.isEmpty ? 'No vaults yet — create one to store credentials.' : 'No vaults match "$_query".',
                                       style: TextStyle(fontFamily: AppFonts.mono, color: AppColors.mutedAt(1))),
                                 )
-                              : ListView.builder(
+                              : GridView.builder(
+                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 150,
+                                    childAspectRatio: 0.72,
+                                    crossAxisSpacing: 14,
+                                    mainAxisSpacing: 14,
+                                  ),
                                   itemCount: _vaults.length,
-                                  itemBuilder: (context, index) => _vaultRow(_vaults[index], isLast: index == _vaults.length - 1),
+                                  itemBuilder: (context, index) => _vaultCard(_vaults[index]),
                                 ),
                         ),
                         InkWell(
@@ -468,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _vaultRow(Vault vault, {required bool isLast}) {
+  Widget _vaultCard(Vault vault) {
     return InkWell(
       onTap: () async {
         await Navigator.of(context).push(
@@ -477,30 +483,46 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {});
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(border: isLast ? null : Border(bottom: BorderSide(color: AppColors.borderAt(0.12)))),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.borderAt(0.22)),
+          color: AppColors.card.withValues(alpha: 0.045),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(vault.category.toUpperCase(),
-                      style: TextStyle(fontFamily: AppFonts.mono, fontSize: 9.5, letterSpacing: 1, color: AppColors.mutedAt(1))),
-                  const SizedBox(height: 3),
-                  Text(vault.name, style: TextStyle(fontFamily: AppFonts.serif, fontSize: 19, color: AppColors.card)),
-                ],
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(vault.category.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontFamily: AppFonts.mono, fontSize: 8.5, letterSpacing: 1, color: AppColors.mutedAt(1))),
+                ),
+                InkWell(
+                  onTap: () => _deleteVault(vault),
+                  child: Icon(Icons.delete_outline, size: 14, color: AppColors.mutedAt(0.8)),
+                ),
+              ],
             ),
-            Text('${vault.entries.length} ENTRIES', style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.mutedAt(1))),
-            const SizedBox(width: 22),
-            InkWell(
-              onTap: () => _deleteVault(vault),
-              child: const Icon(Icons.delete_outline, size: 15, color: AppColors.danger),
+            const Spacer(),
+            Text(vault.name,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: AppFonts.serif, fontSize: 17, fontWeight: FontWeight.w600, height: 1.15, color: AppColors.card)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('${vault.entries.length} ENTRIES',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontFamily: AppFonts.mono, fontSize: 9, color: AppColors.mutedAt(1))),
+                ),
+                Icon(Icons.chevron_right, size: 14, color: AppColors.mutedAt(1)),
+              ],
             ),
-            const SizedBox(width: 16),
-            Icon(Icons.chevron_right, size: 16, color: AppColors.mutedAt(1)),
           ],
         ),
       ),

@@ -62,6 +62,33 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
     }
   }
 
+  Future<void> _renameCategory() async {
+    final controller = TextEditingController(text: widget.vault.category);
+    final newCategory = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.background,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero, side: BorderSide(color: AppColors.borderAt(0.2))),
+        title: const Text('RENAME CATEGORY', style: TextStyle(color: AppColors.text, fontSize: 14, letterSpacing: 1.5)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: AppColors.text),
+          decoration: const InputDecoration(labelText: 'Category'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, controller.text), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (newCategory != null && newCategory.trim().isNotEmpty) {
+      setState(() => widget.vault.category = newCategory.trim());
+      await VaultSession.instance.repository!.save();
+    }
+  }
+
   void _startAddingEntry() => setState(() => _isAddingEntry = true);
 
   void _cancelAddingEntry() {
@@ -354,8 +381,18 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('HOLDINGS / ${widget.vault.category.toUpperCase()}',
-                          style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, letterSpacing: 1.5, color: AppColors.mutedAt(1))),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text('HOLDINGS / ${widget.vault.category.toUpperCase()}',
+                              style: TextStyle(fontFamily: AppFonts.mono, fontSize: 10, letterSpacing: 1.5, color: AppColors.mutedAt(1))),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: _renameCategory,
+                            child: Icon(Icons.edit_outlined, size: 12, color: AppColors.mutedAt(0.8)),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
