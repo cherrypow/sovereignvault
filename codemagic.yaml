@@ -18,6 +18,12 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        # The environment variable group created in Codemagic under
+        # Environment variables, holding whatever custom variables this
+        # build needs. Separate from the app_store_connect integration
+        # above, which handles signing/publishing on its own.
+        - SovVaultApp
 
     scripts:
       - name: Get Flutter packages
