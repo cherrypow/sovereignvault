@@ -77,23 +77,26 @@ workflows:
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
           echo "Profile UUID: $PROFILE_UUID"
           echo "PROFILE_UUID=$PROFILE_UUID" >> $CM_ENV
-
-          PBXPROJ="macos/Runner.xcodeproj/project.pbxproj"
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' "$PBXPROJ"
-          sed -i '' 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' "$PBXPROJ"
           echo "Done setting up code signing"
 
       - name: Build macOS archive
         script: |
+          # Deliberately unsigned here — forcing CODE_SIGN_STYLE/
+          # PROVISIONING_PROFILE via command-line overrides applies to
+          # every target in the build graph, including the Swift Package
+          # Manager plugin targets Flutter macOS now generates
+          # (connectivity_plus, file_picker, url_launcher_macos, etc.).
+          # Those are resource-bundle targets that structurally cannot
+          # carry a provisioning profile at all, so a global override
+          # breaks the archive. Real distribution signing happens at
+          # export time instead (next step), which only touches the
+          # already-built Runner.app, not these sub-targets.
           xcodebuild -workspace macos/Runner.xcworkspace \
             -scheme Runner \
             -archivePath build/macos/Runner.xcarchive \
             -destination 'generic/platform=macOS' \
             archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="799FH7B774" \
-            "CODE_SIGN_IDENTITY=3rd Party Mac Developer Application" \
-            "PROVISIONING_PROFILE=$PROFILE_UUID"
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Export pkg
         script: |
