@@ -4,6 +4,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:sovereign_core/sovereign_core.dart';
+import 'package:uuid/uuid.dart';
 
 /// Opens a sealed vault file produced by [ExportSealedScreen]. The
 /// passphrase never travels with the file — this screen just asks for
@@ -88,13 +89,49 @@ class _ImportSealedScreenState extends State<ImportSealedScreen> {
     final unsealed = _unsealed;
     if (unsealed == null) return;
     final repository = VaultSession.instance.repository!;
+    const uuid = Uuid();
+
+    // The sealed file preserves the sender's original vault/entry/document
+    // ids verbatim. Adding it as-is would let this imported vault share an
+    // id with the vault it was exported from (or with a document that
+    // shares one flat id-keyed file on disk) -- deleting one then deletes
+    // both, since deletion matches by id. Every id is regenerated here so
+    // an imported vault is always independent of wherever it came from.
+    final newEntries = unsealed.vault.entries
+        .map((e) => VaultEntry(
+              id: uuid.v4(),
+              name: e.name,
+              value: e.value,
+              addedDate: e.addedDate,
+              sensitive: e.sensitive,
+              type: e.type,
+              purchaseDate: e.purchaseDate,
+              expiresOn: e.expiresOn,
+            ))
+        .toList();
+
+    final newDocuments = <DocumentEntry>[];
     for (final doc in unsealed.vault.documents) {
       final bytes = unsealed.documentBytes[doc.id];
-      if (bytes != null) {
-        await repository.storeDocumentBytes(doc.id, bytes);
-      }
+      if (bytes == null) continue;
+      final newId = uuid.v4();
+      await repository.storeDocumentBytes(newId, bytes);
+      newDocuments.add(DocumentEntry(
+        id: newId,
+        originalName: doc.originalName,
+        sizeBytes: doc.sizeBytes,
+        addedDate: doc.addedDate,
+      ));
     }
-    repository.vaults.add(unsealed.vault);
+
+    repository.vaults.add(Vault(
+      id: uuid.v4(),
+      name: unsealed.vault.name,
+      category: unsealed.vault.category,
+      notes: unsealed.vault.notes,
+      entries: newEntries,
+      documents: newDocuments,
+    ));
     await repository.save();
     if (!mounted) return;
     Navigator.of(context).pop(true);
