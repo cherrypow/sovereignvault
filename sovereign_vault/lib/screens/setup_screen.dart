@@ -19,6 +19,7 @@ enum _SetupStep { welcome, passphrase, masterPassword }
 
 class _SetupScreenState extends State<SetupScreen> {
   _SetupStep _step = _SetupStep.welcome;
+  bool _acceptedRisk = false;
   late final _passphrase = VaultPassphrase.generate();
   bool _savedPassphrase = false;
   final _masterController = TextEditingController();
@@ -33,6 +34,17 @@ class _SetupScreenState extends State<SetupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Passphrase copied.'), duration: Duration(seconds: 2)),
     );
+  }
+
+  void _continueFromWelcome() {
+    if (!_acceptedRisk) {
+      setState(() => _error = 'You must confirm you understand before continuing.');
+      return;
+    }
+    setState(() {
+      _error = null;
+      _step = _SetupStep.passphrase;
+    });
   }
 
   void _continueFromPassphrase() {
@@ -178,11 +190,39 @@ class _SetupScreenState extends State<SetupScreen> {
           ],
         ),
       ),
-      const SizedBox(height: 22),
+      const SizedBox(height: 14),
+      InkWell(
+        onTap: () => setState(() => _acceptedRisk = !_acceptedRisk),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _acceptedRisk,
+              onChanged: (v) => setState(() => _acceptedRisk = v ?? false),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  'Do you understand? I accept that I am solely responsible for my '
+                  'passphrase and master password, and that lost data cannot be '
+                  'recovered by anyone.',
+                  style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.textAt(0.7)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (_error != null) ...[
+        const SizedBox(height: 10),
+        Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+      ],
+      const SizedBox(height: 16),
       SizedBox(
         height: 46,
         child: ElevatedButton(
-          onPressed: () => setState(() => _step = _SetupStep.passphrase),
+          onPressed: _continueFromWelcome,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.card,
             foregroundColor: AppColors.background,
