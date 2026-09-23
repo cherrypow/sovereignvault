@@ -159,11 +159,31 @@ workflows:
           # has to be unique per upload — otherwise App Store Connect
           # rejects the .pkg with "The provided entity includes an
           # attribute with a value that has already been used", since the
-          # xcconfig's hardcoded "1" never changes between runs. Ask App
-          # Store Connect for the highest build number it has already
-          # seen for this bundle ID and build past it instead of bumping
-          # the xcconfig by hand before every release.
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-build-number "$BUNDLE_ID" || echo 0)
+          # xcconfig's hardcoded "1" never changes between runs. Every
+          # build number ever accepted (even for an expired/deleted
+          # TestFlight build) is permanently reserved by Apple and can
+          # never be reused, so this has to climb monotonically forever.
+          #
+          # get-latest-build-number takes the app's numeric App Store
+          # Connect resource ID, not its bundle ID -- an earlier attempt
+          # at this passed BUNDLE_ID directly, which failed, silently
+          # fell through a "|| echo 0" fallback, and regressed to build 1
+          # again. Resolve the resource ID from the bundle ID first via
+          # `apps list`, and fail loudly on any step here instead of
+          # falling back to a default that would reproduce that bug a
+          # third time with no signal in the logs.
+          APPLE_ID=$(app-store-connect apps list --bundle-id-identifier "$BUNDLE_ID" --json | python3 -c "import json, sys; print(json.load(sys.stdin)[0]['id'])")
+          if [ -z "$APPLE_ID" ]; then
+            echo "ERROR: could not resolve App Store Connect app id for bundle id $BUNDLE_ID"
+            exit 1
+          fi
+          echo "App Store Connect app id for $BUNDLE_ID: $APPLE_ID"
+
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-build-number "$APPLE_ID" --platform MAC_OS)
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then
+            echo "ERROR: could not determine latest build number from App Store Connect"
+            exit 1
+          fi
           BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
           echo "Latest build number on App Store Connect: $LATEST_BUILD_NUMBER -- using $BUILD_NUMBER"
 
