@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 
 import 'home_screen.dart';
+import 'regenerate_passphrase_screen.dart';
 
 class UnlockScreen extends StatefulWidget {
   const UnlockScreen({super.key});
@@ -14,7 +14,7 @@ class UnlockScreen extends StatefulWidget {
 }
 
 class _UnlockScreenState extends State<UnlockScreen> {
-  final _pinController = TextEditingController();
+  final _passphraseController = TextEditingController();
   final _masterController = TextEditingController();
   bool _useMasterPassword = false;
   bool _obscureMaster = true;
@@ -27,25 +27,31 @@ class _UnlockScreenState extends State<UnlockScreen> {
       _working = true;
     });
     try {
-      final vmk = _useMasterPassword
-          ? await KeyManager.unlockWithMasterPassword(_masterController.text)
-          : await KeyManager.unlockWithPin(_pinController.text);
+      if (_useMasterPassword) {
+        final vmk = await KeyManager.unlockWithMasterPassword(_masterController.text);
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => RegeneratePassphraseScreen(vmk: vmk)),
+        );
+        return;
+      }
+      final vmk = await KeyManager.unlockWithPassphrase(_passphraseController.text);
       await VaultSession.instance.unlock(vmk);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on UnlockFailure catch (e) {
-      setState(() => _status = 'Incorrect PIN — ${e.attemptsRemaining} attempt(s) remaining before lockout.');
+      setState(() => _status = 'Incorrect passphrase — ${e.attemptsRemaining} attempt(s) remaining before lockout.');
     } on VaultLockedException catch (e) {
       final remaining = e.until.difference(DateTime.now());
-      setState(() => _status = 'Vault locked. Try again in ${_formatDuration(remaining)}, or use your master password.');
+      setState(() => _status = 'Vault locked. Try again in ${_formatDuration(remaining)}.');
     } on VaultWipedException {
       setState(() => _status = 'Vault key material has been destroyed after repeated failed attempts.');
     } catch (e) {
       setState(() => _status = _useMasterPassword
           ? 'Incorrect master password.'
-          : 'Could not unlock with this PIN ($e).');
+          : 'Could not unlock with this passphrase ($e).');
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -59,10 +65,14 @@ class _UnlockScreenState extends State<UnlockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Container(
+      body: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
             decoration: BoxDecoration(
               color: AppColors.card.withValues(alpha: 0.02),
@@ -99,21 +109,19 @@ class _UnlockScreenState extends State<UnlockScreen> {
               const SizedBox(height: 40),
               if (!_useMasterPassword) ...[
                 TextField(
-                  key: const ValueKey('pin_field'),
-                  controller: _pinController,
+                  key: const ValueKey('passphrase_field'),
+                  controller: _passphraseController,
                   obscureText: true,
                   textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: TextStyle(
                     fontFamily: AppFonts.mono,
                     color: AppColors.text,
-                    fontSize: 28,
-                    letterSpacing: 12,
+                    fontSize: 18,
+                    letterSpacing: 1,
                   ),
                   decoration: InputDecoration(
-                    counterText: '',
+                    hintText: 'word-word-word-word',
+                    hintStyle: TextStyle(color: AppColors.mutedAt(0.8)),
                     filled: true,
                     fillColor: AppColors.card.withValues(alpha: 0.035),
                     border: OutlineInputBorder(
@@ -187,11 +195,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
                 onPressed: () => setState(() {
                   _useMasterPassword = !_useMasterPassword;
                   _status = null;
-                  _pinController.clear();
+                  _passphraseController.clear();
                   _masterController.clear();
                 }),
                 child: Text(
-                  _useMasterPassword ? 'Use PIN instead' : 'Use master password instead',
+                  _useMasterPassword ? 'Use passphrase instead' : 'Use master password instead',
                   style: TextStyle(fontFamily: AppFonts.mono, fontSize: 11, color: AppColors.textAt(0.55)),
                 ),
               ),
@@ -205,6 +213,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
               ],
             ],
           ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

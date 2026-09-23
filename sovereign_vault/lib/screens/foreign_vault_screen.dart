@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 
 /// Shown when encrypted vault data exists at this location (e.g. a
 /// USB drive plugged into a different computer) but this machine's
@@ -39,9 +39,9 @@ class ForeignVaultScreen extends StatelessWidget {
                 Text(
                   'Encrypted vault data was found at this location, but this computer '
                   'does not hold the keys for it. That\'s expected if this data was '
-                  'copied from a USB drive or another machine — by design, both the PIN '
-                  'and the master password only unlock a vault on the computer it was '
-                  'created on.',
+                  'copied from a USB drive or another machine — by design, both the '
+                  'passphrase and the master password only unlock a vault on the '
+                  'computer it was created on.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontFamily: 'Times New Roman', fontSize: 13.5, height: 1.6, color: AppColors.textAt(0.8)),
                 ),

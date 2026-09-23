@@ -7,7 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 import 'package:uuid/uuid.dart';
 
 import 'export_sealed_screen.dart';
@@ -303,7 +303,7 @@ class _VaultDetailScreenState extends State<VaultDetailScreen> {
         content: const Text(
           'This will decrypt every entry and note in this vault and save them as a '
           'plain file at a location you choose. Anyone with access to that file can '
-          'read these secrets without your PIN or master password. Continue?',
+          'read these secrets without your passphrase or master password. Continue?',
           style: TextStyle(color: AppColors.text),
         ),
         actions: [

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 
 /// Shown for the brief moment while _StartupGate checks whether keys
 /// and/or data exist. Replaces a bare spinner — the app should never

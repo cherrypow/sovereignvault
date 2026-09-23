@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import 'core/core.dart';
 
 import 'screens/foreign_vault_screen.dart';
 import 'screens/setup_screen.dart';

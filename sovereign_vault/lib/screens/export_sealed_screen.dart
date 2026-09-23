@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 
 /// Packages a single [Vault] into a PIN-protected file that can travel
 /// through any channel — email, cloud storage, a USB stick — without

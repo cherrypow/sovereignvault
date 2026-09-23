@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 import 'package:uuid/uuid.dart';
 
 /// Opens a sealed vault file produced by [ExportSealedScreen]. The

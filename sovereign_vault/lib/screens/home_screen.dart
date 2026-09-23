@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sovereign_core/sovereign_core.dart';
+import '../core/core.dart';
 import 'package:uuid/uuid.dart';
 
 import 'import_sealed_screen.dart';
@@ -35,26 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return _allVaults.where((v) => v.name.toLowerCase().contains(q) || v.category.toLowerCase().contains(q)).toList();
   }
 
-  bool _isOnline = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
-
-  @override
-  void initState() {
-    super.initState();
-    Connectivity().checkConnectivity().then(_updateOnlineStatus);
-    _connectivitySub = Connectivity().onConnectivityChanged.listen(_updateOnlineStatus);
-  }
-
   @override
   void dispose() {
-    _connectivitySub?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _updateOnlineStatus(List<ConnectivityResult> results) {
-    final online = results.any((r) => r != ConnectivityResult.none);
-    if (mounted) setState(() => _isOnline = online);
   }
 
   Future<void> _createVault() async {
@@ -255,15 +237,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
-                      children: [
-                        Icon(_isOnline ? Icons.wifi : Icons.wifi_off, size: 13, color: AppColors.mutedAt(1)),
-                        const SizedBox(width: 6),
-                        Text(_isOnline ? 'ONLINE' : 'OFFLINE',
-                            style: TextStyle(fontFamily: AppFonts.mono, fontSize: 9.5, letterSpacing: 1.2, color: AppColors.mutedAt(1))),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

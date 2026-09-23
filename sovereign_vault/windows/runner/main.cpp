@@ -24,9 +24,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
-  // Open at a fixed proportion of the screen's work area (not a fixed
-  // pixel size) so the window reads the same relative to the desktop
-  // on a small laptop display as on a large monitor, centered.
+  // Opens at ~2/3 of the screen's work area (not a fixed pixel size),
+  // centered, so the window reads the same relative to the desktop on
+  // a small laptop display as on a large monitor.
   //
   // The values computed here are physical pixels; Win32Window::Create
   // scales whatever logical size it's given back up by the target
@@ -40,8 +40,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   int work_w = work_area.right - work_area.left;
   int work_h = work_area.bottom - work_area.top;
-  int phys_w = static_cast<int>(work_w * 0.66);
-  int phys_h = static_cast<int>(work_h * 0.80);
+  int phys_w = static_cast<int>(work_w * 0.67);
+  int phys_h = static_cast<int>(work_h * 0.67);
   int phys_x = work_area.left + (work_w - phys_w) / 2;
   int phys_y = work_area.top + (work_h - phys_h) / 2;
 

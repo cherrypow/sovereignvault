@@ -14,14 +14,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  sovereign_core:
-    path: ../sovereign_core
   cryptography: ^2.7.0
+  flutter_secure_storage: ^9.2.2
+  path_provider: ^2.1.4
+  path: ^1.9.0
   file_picker: ^8.1.2
   intl: ^0.19.0
   uuid: ^4.4.2
-  url_launcher: ^6.3.1
-  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:
@@ -30,3 +29,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/aurora_logo.png
