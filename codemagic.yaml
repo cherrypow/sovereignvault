@@ -151,6 +151,22 @@ workflows:
 
       - name: Build macOS archive
         script: |
+          export APP_STORE_CONNECT_PRIVATE_KEY="$(echo "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode)"
+
+          # MARKETING_VERSION is pinned to "1.0" in AppInfo.xcconfig (App
+          # Store Connect's version record can't be edited to anything
+          # else), but CURRENT_PROJECT_VERSION (the build number) still
+          # has to be unique per upload — otherwise App Store Connect
+          # rejects the .pkg with "The provided entity includes an
+          # attribute with a value that has already been used", since the
+          # xcconfig's hardcoded "1" never changes between runs. Ask App
+          # Store Connect for the highest build number it has already
+          # seen for this bundle ID and build past it instead of bumping
+          # the xcconfig by hand before every release.
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-build-number "$BUNDLE_ID" || echo 0)
+          BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          echo "Latest build number on App Store Connect: $LATEST_BUILD_NUMBER -- using $BUILD_NUMBER"
+
           # Deliberately unsigned here — forcing CODE_SIGN_STYLE/
           # PROVISIONING_PROFILE via command-line overrides applies to
           # every target in the build graph, including the Swift Package
@@ -174,7 +190,8 @@ workflows:
             -archivePath build/macos/Runner.xcarchive \
             -destination 'generic/platform=macOS' \
             archive \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION=$BUILD_NUMBER
 
       - name: Export pkg
         script: |
